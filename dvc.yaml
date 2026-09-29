@@ -1,12 +1,12 @@
 stages:
 
   collect:
-    cmd: python src/pipeline/collect.py
+    cmd: python src/pipeline/collect.py --output data/raw/iris_raw.csv
     outs:
       - data/raw/iris_raw.csv
 
   preprocess:
-    cmd: python src/pipeline/preprocess.py
+    cmd: python src/pipeline/preprocess.py --input data/raw/iris_raw.csv --output data/processed/iris_preprocessed.csv
     deps:
       - data/raw/iris_raw.csv
       - src/pipeline/preprocess.py
@@ -14,7 +14,7 @@ stages:
       - data/processed/iris_preprocessed.csv
 
   features:
-    cmd: python src/pipeline/features.py
+    cmd: python src/pipeline/features.py --input data/processed/iris_preprocessed.csv --output data/processed/iris_features.csv
     deps:
       - data/processed/iris_preprocessed.csv
       - src/pipeline/features.py
@@ -22,7 +22,7 @@ stages:
       - data/processed/iris_features.csv
 
   validate:
-    cmd: python src/pipeline/validate.py
+    cmd: python src/pipeline/validate.py --input data/processed/iris_features.csv
     deps:
       - data/processed/iris_features.csv
       - src/pipeline/validate.py

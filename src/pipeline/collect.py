@@ -1,48 +1,57 @@
-import csv
+# src/pipeline/collect.py
+
+"""
+Stage 1: Data Collection.
+Simulates ingesting raw data from an external source
+and writing it to the raw data zone.
+"""
+
+import argparse
 import logging
 from datetime import datetime, timezone
+
+import pandas as pd
 from sklearn.datasets import load_iris
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
+
+logger = logging.getLogger("collect")
 
 
-def collect_data(output_path="data/raw/iris_raw.csv"):
-    iris = load_iris()
+def collect_data(output_path: str) -> pd.DataFrame:
+    iris = load_iris(as_frame=True)
 
-    species_map = {
-        0: "setosa",
-        1: "versicolor",
-        2: "virginica"
-    }
+    df = iris.frame.rename(columns={"target": "species"})
 
-    with open(output_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
+    df["species"] = df["species"].map(
+        dict(enumerate(iris.target_names))
+    )
 
-        writer.writerow([
-            "sepal length (cm)",
-            "sepal width (cm)",
-            "petal length (cm)",
-            "petal width (cm)",
-            "species",
-            "collected_at"
-        ])
+    df["collected_at"] = datetime.now(timezone.utc).isoformat()
 
-        for values, target in zip(iris.data, iris.target):
-            writer.writerow([
-                values[0],
-                values[1],
-                values[2],
-                values[3],
-                species_map[int(target)],
-                datetime.now(timezone.utc).isoformat()
-            ])
+    df.to_csv(output_path, index=False)
 
-    logging.info(
-        "Collected %d rows to %s",
-        len(iris.data),
+    logger.info(
+        "Collected %d rows -> %s",
+        len(df),
         output_path
     )
 
+    return df
+
 
 if __name__ == "__main__":
-    collect_data()
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--output",
+        default="data/raw/iris_raw.csv"
+    )
+
+    args = parser.parse_args()
+
+    collect_data(args.output)

@@ -1,93 +1,111 @@
-import csv
+# src/pipeline/preprocess.py
+
+"""
+Stage 2: Data Preprocessing.
+Handles missing values, duplicate removal,
+and type correction.
+"""
+
+import argparse
 import logging
-import os
-import statistics
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+import pandas as pd
 
 
-def preprocess_data(
-    input_path="data/raw/iris_raw.csv",
-    output_path="data/processed/iris_preprocessed.csv"
-):
-    with open(input_path, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
 
-    # Remove exact duplicate rows
-    unique_rows = []
-    seen = set()
+logger = logging.getLogger("preprocess")
 
-    for row in rows:
-        row_tuple = tuple(row.items())
 
-        if row_tuple not in seen:
-            seen.add(row_tuple)
-            unique_rows.append(row)
+NUMERIC_COLS = [
+    "sepal length (cm)",
+    "sepal width (cm)",
+    "petal length (cm)",
+    "petal width (cm)",
+]
 
-    rows = unique_rows
 
-    numeric_columns = [
-        "sepal length (cm)",
-        "sepal width (cm)",
-        "petal length (cm)",
-        "petal width (cm)"
-    ]
+def preprocess(input_path: str, output_path: str) -> pd.DataFrame:
 
-    # Convert numeric values to float
-    for row in rows:
-        for column in numeric_columns:
-            try:
-                row[column] = float(row[column])
-            except (ValueError, TypeError):
-                row[column] = None
+    df = pd.read_csv(input_path)
 
-    # Fill missing numeric values with median
-    for column in numeric_columns:
-        values = [
-            row[column]
-            for row in rows
-            if row[column] is not None
-        ]
+    initial_rows = len(df)
 
-        if values:
-            median_value = statistics.median(values)
+    # Remove duplicate records
+    df = df.drop_duplicates()
 
-            for row in rows:
-                if row[column] is None:
-                    row[column] = median_value
+    logger.info(
+        "Dropped %d duplicate rows",
+        initial_rows - len(df)
+    )
 
-    # Remove rows with missing species
-    rows = [
-        row for row in rows
-        if row.get("species") not in (None, "")
-    ]
+    # Convert numeric columns and fill missing values
+    for col in NUMERIC_COLS:
 
-    # Remove collected_at column
-    for row in rows:
-        row.pop("collected_at", None)
+        df[col] = pd.to_numeric(
+            df[col],
+            errors="coerce"
+        )
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        n_missing = df[col].isna().sum()
 
-    fieldnames = [
-        "sepal length (cm)",
-        "sepal width (cm)",
-        "petal length (cm)",
-        "petal width (cm)",
-        "species"
-    ]
+        if n_missing > 0:
 
-    with open(output_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
+            median_val = df[col].median()
 
-    logging.info(
-        "Preprocessing complete: %d rows written to %s",
-        len(rows),
+            df[col] = df[col].fillna(median_val)
+
+            logger.info(
+                "Imputed %d missing values in '%s' with median=%.3f",
+                n_missing,
+                col,
+                median_val
+            )
+
+    # Remove rows with missing target
+    df = df.dropna(subset=["species"])
+
+    # Remove collection timestamp
+    df.drop(
+        columns=["collected_at"],
+        inplace=True,
+        errors="ignore"
+    )
+
+    df.to_csv(
+        output_path,
+        index=False
+    )
+
+    logger.info(
+        "Preprocessed %d rows -> %s",
+        len(df),
         output_path
     )
 
+    return df
+
 
 if __name__ == "__main__":
-    preprocess_data()
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--input",
+        default="data/raw/iris_raw.csv"
+    )
+
+    parser.add_argument(
+        "--output",
+        default="data/processed/iris_preprocessed.csv"
+    )
+
+    args = parser.parse_args()
+
+    preprocess(
+        args.input,
+        args.output
+    )
