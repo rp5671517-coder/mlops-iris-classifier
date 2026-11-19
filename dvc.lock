@@ -54,3 +54,23 @@ stages:
       hash: md5
       md5: bfc254d26ee78ede2d7fe38757e40646
       size: 2957
+  build_features:
+    cmd: python src/pipeline/build_features.py
+    deps:
+    - path: data/raw/digits.csv
+      hash: md5
+      md5: d437398818f013a62d3c2325bf577198
+      size: 504982
+    - path: src/pipeline/build_features.py
+      hash: md5
+      md5: 3b95636b27a6549386fb4369125a5e9d
+      size: 1649
+    params:
+      params.yaml:
+        feature_pipeline.output_file: data/processed/features.parquet
+        feature_pipeline.pixel_max_value: 16.0
+    outs:
+    - path: data/processed/features.parquet
+      hash: md5
+      md5: dd0dd54da356ab2d74b1adf9f81b8d82
+      size: 101963
